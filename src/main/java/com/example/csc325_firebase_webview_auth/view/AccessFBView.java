@@ -1,4 +1,4 @@
-package com.example.csc325_firebase_webview_auth.view;//package modelview;
+package com.example.csc325_firebase_webview_auth.view;
 
 import com.example.csc325_firebase_webview_auth.model.Person;
 import com.example.csc325_firebase_webview_auth.viewmodel.AccessDataViewModel;
@@ -10,49 +10,69 @@ import com.google.cloud.firestore.WriteResult;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import javafx.stage.FileChooser;
+import java.io.File;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.stage.FileChooser;
 
 public class AccessFBView {
 
+    @FXML
+    private TableView<Person> tableView;
 
-     @FXML
+    @FXML
+    private TableColumn<Person, String> nameColumn;
+
+    @FXML
+    private TableColumn<Person, String> majorColumn;
+
+    @FXML
+    private TableColumn<Person, Integer> ageColumn;
+
+    @FXML
     private TextField nameField;
+
     @FXML
     private TextField majorField;
+
     @FXML
     private TextField ageField;
+
     @FXML
     private Button writeButton;
+
     @FXML
     private Button readButton;
-    @FXML
-    private TextArea outputField;
-     private boolean key;
-    private ObservableList<Person> listOfUsers = FXCollections.observableArrayList();
-    private Person person;
-    public ObservableList<Person> getListOfUsers() {
-        return listOfUsers;
-    }
 
-    void initialize() {
+    private ObservableList<Person> listOfUsers = FXCollections.observableArrayList();
+
+    @FXML
+    public void initialize() {
 
         AccessDataViewModel accessDataViewModel = new AccessDataViewModel();
+
         nameField.textProperty().bindBidirectional(accessDataViewModel.userNameProperty());
         majorField.textProperty().bindBidirectional(accessDataViewModel.userMajorProperty());
+
         writeButton.disableProperty().bind(accessDataViewModel.isWritePossibleProperty().not());
+
+        nameColumn.setCellValueFactory(data -> data.getValue().nameProperty());
+        majorColumn.setCellValueFactory(data -> data.getValue().majorProperty());
+        ageColumn.setCellValueFactory(data -> data.getValue().ageProperty().asObject());
+
+        tableView.setItems(listOfUsers);
     }
 
     @FXML
@@ -60,101 +80,116 @@ public class AccessFBView {
         addData();
     }
 
-        @FXML
+    @FXML
     private void readRecord(ActionEvent event) {
         readFirebase();
     }
 
-            @FXML
+    @FXML
     private void regRecord(ActionEvent event) {
         registerUser();
     }
 
-     @FXML
+    @FXML
     private void switchToSecondary() throws IOException {
         App.setRoot("/files/WebContainer.fxml");
     }
 
     public void addData() {
 
-        DocumentReference docRef = App.fstore.collection("References").document(UUID.randomUUID().toString());
+        DocumentReference docRef =
+                App.fstore.collection("References").document(UUID.randomUUID().toString());
 
         Map<String, Object> data = new HashMap<>();
         data.put("Name", nameField.getText());
         data.put("Major", majorField.getText());
         data.put("Age", Integer.parseInt(ageField.getText()));
-        //asynchronously write data
+
         ApiFuture<WriteResult> result = docRef.set(data);
     }
 
-        public boolean readFirebase()
-         {
-             key = false;
+    public boolean readFirebase() {
 
-        //asynchronously retrieve all documents
-        ApiFuture<QuerySnapshot> future =  App.fstore.collection("References").get();
-        // future.get() blocks on response
-        List<QueryDocumentSnapshot> documents;
-        try
-        {
-            documents = future.get().getDocuments();
-            if(documents.size()>0)
-            {
-                System.out.println("Outing....");
-                for (QueryDocumentSnapshot document : documents)
-                {
-                    outputField.setText(outputField.getText()+ document.getData().get("Name")+ " , Major: "+
-                            document.getData().get("Major")+ " , Age: "+
-                            document.getData().get("Age")+ " \n ");
-                    System.out.println(document.getId() + " => " + document.getData().get("Name"));
-                    person  = new Person(String.valueOf(document.getData().get("Name")),
-                            document.getData().get("Major").toString(),
-                            Integer.parseInt(document.getData().get("Age").toString()));
-                    listOfUsers.add(person);
-                }
-            }
-            else
-            {
-               System.out.println("No data");
-            }
-            key=true;
+        listOfUsers.clear();
 
-        }
-        catch (InterruptedException | ExecutionException ex)
-        {
-             ex.printStackTrace();
-        }
-        return key;
-    }
+        ApiFuture<QuerySnapshot> future =
+                App.fstore.collection("References").get();
 
-        public void sendVerificationEmail() {
         try {
-            UserRecord user = App.fauth.getUser("name");
-            //String url = user.getPassword();
 
-        } catch (Exception e) {
+            List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+
+            for (QueryDocumentSnapshot document : documents) {
+
+                Person person = new Person(
+                        String.valueOf(document.getData().get("Name")),
+                        document.getData().get("Major").toString(),
+                        Integer.parseInt(document.getData().get("Age").toString())
+                );
+
+                listOfUsers.add(person);
+            }
+
+            return true;
+
+        } catch (InterruptedException | ExecutionException ex) {
+            ex.printStackTrace();
+            return false;
         }
     }
 
     public boolean registerUser() {
+
         UserRecord.CreateRequest request = new UserRecord.CreateRequest()
                 .setEmail("user@example.com")
                 .setEmailVerified(false)
                 .setPassword("secretPassword")
-                .setPhoneNumber("+11234567890")
                 .setDisplayName("John Doe")
                 .setDisabled(false);
 
-        UserRecord userRecord;
         try {
-            userRecord = App.fauth.createUser(request);
-            System.out.println("Successfully created new user: " + userRecord.getUid());
+
+            UserRecord userRecord = App.fauth.createUser(request);
+            System.out.println("Created user: " + userRecord.getUid());
             return true;
 
         } catch (FirebaseAuthException ex) {
-           // Logger.getLogger(FirestoreContext.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
+    }
 
+    @FXML
+    private void openLogin() {
+        try {
+            App.setRoot("/files/Login.fxml");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    private void openRegister() {
+        try {
+            App.setRoot("/files/Register.fxml");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    private void logout() {
+        System.out.println("User logged out");
+    }
+
+    // Requirement 6: Upload profile picture
+    @FXML
+    private void uploadPicture() {
+
+        FileChooser chooser = new FileChooser();
+        File file = chooser.showOpenDialog(null);
+
+        if (file != null) {
+            System.out.println("Selected file: " + file.getAbsolutePath());
+        }
     }
 }

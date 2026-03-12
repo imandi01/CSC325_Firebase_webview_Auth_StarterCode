@@ -25,7 +25,12 @@ public class App extends Application {
     public void start(Stage primaryStage) throws Exception {
         fstore = contxtFirebase.firebase();
         fauth = FirebaseAuth.getInstance();
-        scene = new Scene(loadFXML("/files/AccessFBView.fxml"));
+        scene = new Scene(loadFXML("/files/Splash.fxml"));
+
+        scene.getStylesheets().add(
+                App.class.getResource("/style.css").toExternalForm()
+        );
+
         primaryStage.setScene(scene);
         primaryStage.show();
     }
